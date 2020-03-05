@@ -546,6 +546,12 @@ class TreeEnsemble:
             self.trees = [Tree(e.tree_, scaling=scaling, data=data, data_missing=data_missing) for e in model.estimators_]
             self.objective = objective_name_map.get(model.criterion, None)
             self.tree_output = "raw_value"
+        elif str(type(model)).endswith("skgarden.mondrian.ensemble.forest.MondrianForestRegressor'>"):
+            self.dtype = np.float32
+            scaling = 1.0 / len(model.estimators_) 
+            self.trees = [Tree(e.tree_, scaling=scaling, data=data, data_missing=data_missing) for e in model.estimators_]
+            self.objective = objective_name_map.get("mae", None)
+            self.tree_output = "raw_value"
         elif safe_isinstance(model, ["sklearn.ensemble.IsolationForest", "sklearn.ensemble.iforest.IsolationForest"]):
             self.dtype = np.float32
             scaling = 1.0 / len(model.estimators_) # output is average of trees
@@ -1031,6 +1037,18 @@ class Tree:
             self.children_left = tree.children_left.astype(np.int32)
             self.children_right = tree.children_right.astype(np.int32)
             self.children_default = self.children_left # missing values not supported in sklearn
+            self.features = tree.feature.astype(np.int32)
+            self.thresholds = tree.threshold.astype(np.float64)
+            self.values = tree.value.reshape(tree.value.shape[0], tree.value.shape[1] * tree.value.shape[2])
+            if normalize:
+                self.values = (self.values.T / self.values.sum(1)).T
+            self.values = self.values * scaling
+            self.node_sample_weight = tree.weighted_n_node_samples.astype(np.float64)
+
+        elif str(type(tree)).endswith("'skgarden.mondrian.tree._tree.Tree'>"):
+            self.children_left = tree.children_left.astype(np.int32)
+            self.children_right = tree.children_right.astype(np.int32)
+            self.children_default = self.children_left
             self.features = tree.feature.astype(np.int32)
             self.thresholds = tree.threshold.astype(np.float64)
             self.values = tree.value.reshape(tree.value.shape[0], tree.value.shape[1] * tree.value.shape[2])
